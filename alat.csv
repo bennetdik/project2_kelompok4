@@ -1,0 +1,21 @@
+kode,nama,kategori,kondisi,tersedia
+AL001,Laptop ASUS Core i5,Perangkat Komputasi,Baik,True
+AL002,PC Desktop Lab,Perangkat Komputasi,Baik,True
+AL003,Arduino Uno Kit,Perangkat Komputasi,Baik,True
+AL004,Raspberry Pi 4 Kit,Perangkat Komputasi,Baik,True
+AL005,Kabel LAN (UTP) + Crimping,Perangkat Jaringan,Baik,True
+AL006,Switch Hub 8 Port,Perangkat Jaringan,Baik,True
+AL007,Router Mikrotik hEX,Perangkat Jaringan,Baik,True
+AL008,Kamera Digital Canon,Perangkat Multimedia,Baik,True
+AL009,Tripod Kamera,Perangkat Multimedia,Baik,True
+AL010,Proyektor Mini,Perangkat Multimedia,Rusak Berat,False
+AL011,Wireless Access Point TP-Link,Perangkat Jaringan,Baik,True
+AL012,Fiber Optic Media Converter,Perangkat Jaringan,Baik,True
+AL013,LAN Tester RJ45,Perangkat Jaringan,Baik,True
+AL014,Multimeter Digital,Perangkat Komputasi,Baik,True
+AL015,Crimping Tool & Stripper,Perangkat Jaringan,Rusak Ringan,False
+AL016,Drawing Tablet Huion,Perangkat Multimedia,Baik,True
+AL017,Microphone Clip-On Wireless,Perangkat Multimedia,Baik,True
+AL018,Webcam Logitech Full HD,Perangkat Multimedia,Baik,True
+AL019,Solder Listrik + Dudukan,Perangkat Komputasi,Baik,True
+AL020,Access Point Cisco Aironet,Perangkat Jaringan,Rusak Ringan,False

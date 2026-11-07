@@ -1,4 +1,12 @@
-from datetime import datetime, timedelta
+"""Sistem Peminjaman Alat Laboratorium.
+
+Pengolahan file mengikuti materi Praktikum 09 (File Handling):
+open(), mode r/w/a, readlines(), write()/writelines(), dan
+try/except FileNotFoundError.
+"""
+
+from datetime import datetime
+from pathlib import Path
 
 from alat import Alat
 from kategori_alat import KategoriAlat
@@ -13,6 +21,9 @@ DAFTAR_MAHASISWA = {}
 DAFTAR_KATEGORI = {}
 DAFTAR_ALAT = {}
 DAFTAR_TRANSAKSI = []
+
+FILE_MAHASISWA = Path(__file__).resolve().parent / "mahasiswa.csv"
+FILE_ALAT = Path(__file__).resolve().parent / "alat.csv"
 
 KONDISI_PILIHAN = ("Baik", "Rusak Ringan", "Rusak Berat")
 _id_transaksi = [0]
@@ -64,85 +75,192 @@ def catat_pengembalian(trx, detail):
         f"(trx {trx.id_transaksi})", detail.tanggal_kembali)
 
 
-def siapkan_data():
-    """Mengisi data awal mahasiswa, kategori, alat, dan contoh transaksi."""
-    waktu_data = datetime.now() - timedelta(days=16)
-    for nama_kategori in ("Perangkat Komputasi", "Perangkat Jaringan",
-                          "Perangkat Multimedia"):
-        DAFTAR_KATEGORI[nama_kategori] = KategoriAlat(nama_kategori)
-        catat_aktivitas(f"Kategori '{nama_kategori}' ditambahkan", waktu_data)
-
-    for nim, nama, nohp in [
-        ("2410512001", "Andi Wijaya", "081234567890"),
-        ("2410512002", "Siti Rahmawati", "081298765432"),
-        ("2410512003", "Budi Santoso", "081377766655"),
-        ("2410512004", "Rina Amelia", "081355544433"),
-    ]:
-        DAFTAR_MAHASISWA[nim] = Mahasiswa(nim, nama, nohp)
-        catat_aktivitas(f"Mahasiswa {nim} ({nama}) ditambahkan", waktu_data)
-
-    for kode, nama, nama_kategori, kondisi in [
-        ("AL001", "Laptop ASUS Core i5", "Perangkat Komputasi", "Baik"),
-        ("AL002", "PC Desktop Lab", "Perangkat Komputasi", "Baik"),
-        ("AL003", "Arduino Uno Kit", "Perangkat Komputasi", "Baik"),
-        ("AL004", "Raspberry Pi 4 Kit", "Perangkat Komputasi", "Baik"),
-        ("AL005", "Kabel LAN (UTP) + Crimping", "Perangkat Jaringan", "Baik"),
-        ("AL006", "Switch Hub 8 Port", "Perangkat Jaringan", "Baik"),
-        ("AL007", "Router Mikrotik hEX", "Perangkat Jaringan", "Baik"),
-        ("AL008", "Kamera Digital Canon", "Perangkat Multimedia", "Baik"),
-        ("AL009", "Tripod Kamera", "Perangkat Multimedia", "Baik"),
-        ("AL010", "Proyektor Mini", "Perangkat Multimedia", "Rusak Berat"),
-    ]:
-        alat = Alat(kode, nama, DAFTAR_KATEGORI[nama_kategori])
-        if kondisi != "Baik":
-            alat.set_kondisi(kondisi)
-        DAFTAR_ALAT[kode] = alat
-        catat_aktivitas(f"Alat {kode} - {nama} ({nama_kategori}, "
-                        f"kondisi {kondisi}) ditambahkan", waktu_data)
-
-    _buat_contoh_transaksi()
+def _pecah_kolom(baris):
+    """Memecah satu baris CSV menjadi list kolom (mendukung tanda kutip)."""
+    kolom = []
+    nilai = []
+    dalam_kutip = False
+    i = 0
+    while i < len(baris):
+        karakter = baris[i]
+        if karakter == '"':
+            if dalam_kutip and i + 1 < len(baris) and baris[i + 1] == '"':
+                nilai.append('"')
+                i += 1
+            else:
+                dalam_kutip = not dalam_kutip
+        elif karakter == "," and not dalam_kutip:
+            kolom.append("".join(nilai).strip())
+            nilai = []
+        else:
+            nilai.append(karakter)
+        i += 1
+    kolom.append("".join(nilai).strip())
+    return kolom
 
 
-def _buat_contoh_transaksi():
-    """Beberapa data transaksi contoh agar riwayat dan status tidak kosong."""
-    sekarang = datetime.now()
+def _format_kolom(nilai):
+    """Mengubah nilai menjadi kolom CSV yang aman."""
+    teks = str(nilai)
+    if any(karakter in teks for karakter in (",", '"', "\n", "\r")):
+        teks = '"' + teks.replace('"', '""') + '"'
+    return teks
 
-    trx1 = TransaksiPeminjaman(
-        id_transaksi_baru(), DAFTAR_MAHASISWA["2410512001"],
-        tanggal_pinjam=sekarang - timedelta(days=10), lama_hari=7)
-    trx1.tambah_alat(DAFTAR_ALAT["AL003"])
-    trx1.tambah_alat(DAFTAR_ALAT["AL004"])
-    trx1.kembalikan_alat("AL003", "baik",
-                         tanggal=sekarang - timedelta(days=8))
-    DAFTAR_TRANSAKSI.append(trx1)
-    catat_pembuatan_transaksi(trx1)
-    catat_pengembalian(trx1, trx1.cari_detail("AL003"))
 
-    trx2 = TransaksiPeminjaman(
-        id_transaksi_baru(), DAFTAR_MAHASISWA["2410512002"],
-        tanggal_pinjam=sekarang - timedelta(days=15), lama_hari=7)
-    trx2.tambah_alat(DAFTAR_ALAT["AL001"])
-    trx2.tambah_alat(DAFTAR_ALAT["AL002"])
-    trx2.kembalikan_alat("AL001", "baik",
-                         tanggal=sekarang - timedelta(days=13))
-    trx2.kembalikan_alat("AL002", "rusak ringan",
-                         tanggal=sekarang - timedelta(days=13))
-    DAFTAR_TRANSAKSI.append(trx2)
-    catat_pembuatan_transaksi(trx2)
-    catat_pengembalian(trx2, trx2.cari_detail("AL001"))
-    catat_pengembalian(trx2, trx2.cari_detail("AL002"))
+def _baris_csv(nilai):
+    """Menggabungkan beberapa nilai menjadi satu baris CSV."""
+    return ",".join(_format_kolom(kolom) for kolom in nilai)
 
-    trx3 = TransaksiPeminjaman(
-        id_transaksi_baru(), DAFTAR_MAHASISWA["2410512003"],
-        tanggal_pinjam=sekarang - timedelta(days=1), lama_hari=7)
-    trx3.tambah_alat(DAFTAR_ALAT["AL005"])
-    DAFTAR_TRANSAKSI.append(trx3)
-    catat_pembuatan_transaksi(trx3)
 
-    LOG_AKTIVITAS.sort(key=lambda catatan: catatan["waktu"])
+def _baca_semua_baris(path):
+    """Membaca seluruh baris file dengan mode 'r'.
 
+    File yang belum ada ditangani memakai try/except FileNotFoundError.
+    """
+    try:
+        with open(path, "r", encoding="utf-8-sig") as berkas:
+            return [baris.rstrip("\r\n") for baris in berkas.readlines()]
+    except FileNotFoundError:
+        print(f"  [i] File {path.name} belum ada, data dikosongkan.")
+        return []
+
+
+def _baris_ke_dict(judul, baris):
+    """Mengubah satu baris CSV menjadi dict berdasarkan baris judul."""
+    return dict(zip(judul, _pecah_kolom(baris)))
+
+
+def _siapkan_append(path, header):
+    """Menyiapkan file agar aman ditambah data memakai mode 'a'."""
+    try:
+        with open(path, "r", encoding="utf-8-sig") as berkas:
+            isi = berkas.read()
+    except FileNotFoundError:
+        isi = ""
+
+    if not isi.strip():
+        with open(path, "w", encoding="utf-8") as berkas:
+            berkas.write(header + "\n")
+    elif not isi.endswith("\n"):
+        with open(path, "a", encoding="utf-8") as berkas:
+            berkas.write("\n")
+
+
+def muat_mahasiswa():
+    """Memuat data mahasiswa dari mahasiswa.csv dengan mode 'r'."""
+    DAFTAR_MAHASISWA.clear()
+    semua_baris = _baca_semua_baris(FILE_MAHASISWA)
+    if not semua_baris:
+        return
+
+    judul = _pecah_kolom(semua_baris[0])
+    for baris in semua_baris[1:]:
+        if not baris.strip():
+            continue
+        data = _baris_ke_dict(judul, baris)
+        nim = data.get("nim", "").strip()
+        if not nim:
+            continue
+        DAFTAR_MAHASISWA[nim] = Mahasiswa(
+            nim,
+            data.get("nama", "").strip(),
+            data.get("no_hp", "").strip(),
+        )
+
+
+def simpan_mahasiswa():
+    """Menulis ulang seluruh data mahasiswa ke mahasiswa.csv (mode 'w')."""
+    baris = ["nim,nama,no_hp\n"]
     for mhs in DAFTAR_MAHASISWA.values():
-        mhs.set_status_aktif(_punya_transaksi_aktif(mhs.get_nim()))
+        baris.append(_baris_csv([
+            mhs.get_nim(), mhs.get_nama(), mhs.get_no_hp(),
+        ]) + "\n")
+
+    with open(FILE_MAHASISWA, "w", encoding="utf-8") as berkas:
+        berkas.writelines(baris)
+
+
+def tambah_mahasiswa_ke_file(mhs):
+    """Menambahkan satu mahasiswa di akhir file (mode append 'a')."""
+    _siapkan_append(FILE_MAHASISWA, "nim,nama,no_hp")
+    with open(FILE_MAHASISWA, "a", encoding="utf-8") as berkas:
+        berkas.write(_baris_csv([
+            mhs.get_nim(), mhs.get_nama(), mhs.get_no_hp(),
+        ]) + "\n")
+
+
+def muat_alat():
+    """Memuat data alat dari alat.csv dengan mode 'r'."""
+    DAFTAR_ALAT.clear()
+    DAFTAR_KATEGORI.clear()
+    semua_baris = _baca_semua_baris(FILE_ALAT)
+    if not semua_baris:
+        return
+
+    judul = _pecah_kolom(semua_baris[0])
+    for baris in semua_baris[1:]:
+        if not baris.strip():
+            continue
+        data = _baris_ke_dict(judul, baris)
+        kode = data.get("kode", "").strip()
+        if not kode:
+            continue
+
+        nama_kategori = data.get("kategori", "").strip() or "Lainnya"
+        if nama_kategori not in DAFTAR_KATEGORI:
+            DAFTAR_KATEGORI[nama_kategori] = KategoriAlat(nama_kategori)
+
+        kondisi = data.get("kondisi", "").strip() or "Baik"
+        alat = Alat(kode, data.get("nama", "").strip(),
+                    DAFTAR_KATEGORI[nama_kategori], kondisi=kondisi)
+
+        teks_tersedia = data.get("tersedia", "").strip().lower()
+        if teks_tersedia in ("false", "0", "tidak", "no"):
+            alat.set_tersedia(False)
+        elif teks_tersedia in ("true", "1", "ya", "yes"):
+            alat.set_tersedia(True)
+        else:
+            alat.set_tersedia(kondisi.lower() != "rusak berat")
+        DAFTAR_ALAT[kode] = alat
+
+
+def simpan_alat():
+    """Menulis ulang seluruh data alat ke alat.csv (mode 'w')."""
+    baris = ["kode,nama,kategori,kondisi,tersedia\n"]
+    for alat in DAFTAR_ALAT.values():
+        baris.append(_baris_csv([
+            alat.kode_alat,
+            alat.nama_alat,
+            alat.kategori.nama_kategori,
+            alat.kondisi,
+            alat.tersedia,
+        ]) + "\n")
+
+    with open(FILE_ALAT, "w", encoding="utf-8") as berkas:
+        berkas.writelines(baris)
+
+
+def tambah_alat_ke_file(alat):
+    """Menambahkan satu alat di akhir file (mode append 'a')."""
+    _siapkan_append(FILE_ALAT, "kode,nama,kategori,kondisi,tersedia")
+    with open(FILE_ALAT, "a", encoding="utf-8") as berkas:
+        berkas.write(_baris_csv([
+            alat.kode_alat,
+            alat.nama_alat,
+            alat.kategori.nama_kategori,
+            alat.kondisi,
+            alat.tersedia,
+        ]) + "\n")
+
+
+def siapkan_data():
+    """Memuat data awal langsung dari mahasiswa.csv dan alat.csv."""
+    muat_mahasiswa()
+    muat_alat()
+    catat_aktivitas(f"Data dimuat dari {FILE_MAHASISWA.name} "
+                    f"({len(DAFTAR_MAHASISWA)} mahasiswa)")
+    catat_aktivitas(f"Data dimuat dari {FILE_ALAT.name} "
+                    f"({len(DAFTAR_ALAT)} alat)")
 
 
 def judul(teks):
@@ -354,11 +472,61 @@ def menu_tambah_alat():
         return
 
     alat = Alat(kode, nama, kategori, kondisi="Baik")
+    try:
+        tambah_alat_ke_file(alat)
+    except OSError as pesan:
+        print(f"  [!] Gagal menyimpan ke {FILE_ALAT.name}: {pesan}")
+        return
     DAFTAR_ALAT[kode] = alat
     catat_aktivitas(f"Alat {kode} - {nama} ({kategori.nama_kategori}, "
                     f"kondisi Baik) ditambahkan")
     print(f"\n  [OK] Alat {kode} - {nama} ({kategori.nama_kategori}) "
           f"berhasil ditambahkan dengan kondisi Baik.")
+    print(f"       Data tersimpan di {FILE_ALAT.name}.")
+
+
+def _alat_sedang_dipinjam(kode):
+    """True bila alat masih tercatat pada transaksi yang belum selesai."""
+    for trx in DAFTAR_TRANSAKSI:
+        if trx.memuat_alat(kode):
+            return True
+    return False
+
+
+def menu_ubah_kondisi_alat():
+    """Mengubah kondisi alat lalu menyimpannya ke alat.csv."""
+    judul("UBAH KONDISI ALAT")
+    if not DAFTAR_ALAT:
+        print("  Belum ada data alat.")
+        return
+    tampilkan_kondisi_alat()
+
+    kode = input("\nKode alat yang diubah (kosong = batal): ").strip().upper()
+    if not kode:
+        print("  Pembatalan, kondisi alat tidak diubah.")
+        return
+    alat = DAFTAR_ALAT.get(kode)
+    if alat is None:
+        print(f"  [!] Kode alat {kode} tidak ditemukan.")
+        return
+
+    print(f"\nKondisi saat ini: {alat.kondisi}")
+    for i, kondisi in enumerate(KONDISI_PILIHAN, start=1):
+        print(f"  {i}. {kondisi}")
+    pilihan = baca_int("Pilihan kondisi baru: ", minimum=1,
+                       maksimum=len(KONDISI_PILIHAN))
+    kondisi = KONDISI_PILIHAN[pilihan - 1]
+
+    alat.set_kondisi(kondisi)
+    if kondisi == "Rusak Berat":
+        alat.set_tersedia(False)
+    elif not _alat_sedang_dipinjam(kode):
+        alat.set_tersedia(True)
+    simpan_alat()
+    catat_aktivitas(f"Kondisi alat {kode} - {alat.nama_alat} diubah "
+                    f"menjadi {kondisi}")
+    print(f"\n  [OK] Kondisi {kode} - {alat.nama_alat} diubah menjadi "
+          f"'{kondisi}' dan disimpan ke {FILE_ALAT.name}.")
 
 
 def menu_alat():
@@ -369,8 +537,9 @@ def menu_alat():
         print("3. Alat yang sedang dipinjam")
         print("4. Tambah kategori baru")
         print("5. Tambah alat baru")
+        print("6. Ubah kondisi alat")
         print("0. Kembali ke menu utama")
-        pilihan = baca_int("\nPilihan: ", minimum=0, maksimum=5, wajib=False)
+        pilihan = baca_int("\nPilihan: ", minimum=0, maksimum=6, wajib=False)
 
         if pilihan in (None, 0):
             return
@@ -384,6 +553,8 @@ def menu_alat():
             menu_tambah_kategori()
         elif pilihan == 5:
             menu_tambah_alat()
+        elif pilihan == 6:
+            menu_ubah_kondisi_alat()
         jeda()
 
 
@@ -455,8 +626,10 @@ def menu_pinjam_alat():
 
     DAFTAR_TRANSAKSI.append(trx)
     mhs.set_status_aktif(True)
+    simpan_alat()
     catat_pembuatan_transaksi(trx)
     print("\n  [OK] Peminjaman berhasil dicatat.")
+    print(f"       Status ketersediaan alat disimpan di {FILE_ALAT.name}.")
     garis()
     cetak_transaksi(trx)
 
@@ -514,6 +687,7 @@ def menu_pengembalian_alat():
         return
 
     catat_pengembalian(trx, detail)
+    simpan_alat()
     print(f"\n  [OK] {kode} berhasil dikembalikan dengan kondisi "
           f"'{kondisi.title()}'.")
     if not trx.aktif:
@@ -603,6 +777,39 @@ def menu_riwayat_pinjaman():
     print(f"  Sudah dikembalikan  : {total_alat - masih_dipinjam}")
 
 
+def menu_tambah_mahasiswa():
+    """Menambah mahasiswa baru dan langsung menyimpannya ke mahasiswa.csv."""
+    judul("TAMBAH MAHASISWA")
+    nim = input("NIM (kosong = batal): ").strip()
+    if not nim:
+        print("  Pembatalan, mahasiswa tidak ditambahkan.")
+        return
+    if nim in DAFTAR_MAHASISWA:
+        print(f"  [!] NIM {nim} sudah terdaftar.")
+        return
+
+    nama = input("Nama mahasiswa: ").strip()
+    if not nama:
+        print("  Pembatalan, nama mahasiswa tidak boleh kosong.")
+        return
+
+    no_hp = input("No. HP: ").strip()
+    if not no_hp:
+        print("  Pembatalan, nomor HP tidak boleh kosong.")
+        return
+
+    mhs = Mahasiswa(nim, nama, no_hp)
+    try:
+        tambah_mahasiswa_ke_file(mhs)
+    except OSError as pesan:
+        print(f"  [!] Gagal menyimpan ke {FILE_MAHASISWA.name}: {pesan}")
+        return
+    DAFTAR_MAHASISWA[nim] = mhs
+    catat_aktivitas(f"Mahasiswa {nim} ({nama}) ditambahkan")
+    print(f"\n  [OK] Mahasiswa {nim} - {nama} berhasil ditambahkan.")
+    print(f"       Data tersimpan di {FILE_MAHASISWA.name}.")
+
+
 def menu_hapus_mahasiswa():
     """Mahasiswa hanya boleh dihapus jika tidak punya transaksi aktif."""
     judul("HAPUS DATA MAHASISWA")
@@ -627,8 +834,10 @@ def menu_hapus_mahasiswa():
         return
 
     del DAFTAR_MAHASISWA[nim]
+    simpan_mahasiswa()
     catat_aktivitas(f"Mahasiswa {nim} ({mhs.get_nama()}) dihapus")
     print(f"  [OK] Data mahasiswa {nim} berhasil dihapus.")
+    print(f"       Perubahan tersimpan di {FILE_MAHASISWA.name}.")
     print("       Riwayat peminjaman lama tetap tersimpan pada daftar transaksi.")
 
 
@@ -664,8 +873,10 @@ def menu_hapus_alat():
         return
 
     del DAFTAR_ALAT[kode]
+    simpan_alat()
     catat_aktivitas(f"Alat {kode} - {alat.nama_alat} dihapus")
     print(f"  [OK] Alat {kode} - {alat.nama_alat} berhasil dihapus.")
+    print(f"       Perubahan tersimpan di {FILE_ALAT.name}.")
 
 
 def menu_hapus_data():
@@ -806,6 +1017,7 @@ def tampilkan_menu_utama():
     print("5. Hapus Data")
     print("6. Log Aktivitas")
     print("7. Statistik Peminjaman")
+    print("8. Tambah Mahasiswa")
     print("0. Keluar Program")
 
 
@@ -813,7 +1025,7 @@ def main():
     siapkan_data()
     while True:
         tampilkan_menu_utama()
-        pilihan = baca_int("\nPilih menu: ", minimum=0, maksimum=7,
+        pilihan = baca_int("\nPilih menu: ", minimum=0, maksimum=8,
                            wajib=False)
 
         if pilihan in (None, 0):
@@ -835,6 +1047,9 @@ def main():
             menu_log()
         elif pilihan == 7:
             menu_statistik()
+            jeda()
+        elif pilihan == 8:
+            menu_tambah_mahasiswa()
             jeda()
 
 
