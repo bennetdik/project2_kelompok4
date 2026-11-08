@@ -26,6 +26,7 @@ DAFTAR_TRANSAKSI = []
 FILE_MAHASISWA = Path(__file__).resolve().parent / "mahasiswa.csv"
 FILE_ALAT = Path(__file__).resolve().parent / "alat.csv"
 FILE_TRANSAKSI = Path(__file__).resolve().parent / "transaksi.csv"
+FILE_LOG = Path(__file__).resolve().parent / "log.csv"
 
 KONDISI_PILIHAN = ("Baik", "Rusak Ringan", "Rusak Berat")
 _id_transaksi = [0]
@@ -255,6 +256,65 @@ def tambah_alat_ke_file(alat):
         ]) + "\n")
 
 
+def muat_log():
+    """Membaca log.csv (mode 'r')."""
+    LOG_AKTIVITAS.clear()
+    semua_baris = _baca_semua_baris(FILE_LOG)
+    if not semua_baris:
+        return
+
+    judul_kolom = _pecah_kolom(semua_baris[0])
+    for baris in semua_baris[1:]:
+        if not baris.strip():
+            continue
+        data = _baris_ke_dict(judul_kolom, baris)
+        waktu_str = data.get("waktu", "").strip()
+        aktivitas = data.get("aktivitas", "").strip()
+        if not waktu_str or not aktivitas:
+            continue
+
+        try:
+            waktu_dt = datetime.strptime(waktu_str, "%Y-%m-%d %H:%M")
+        except ValueError:
+            waktu_dt = datetime.now()
+
+        LOG_AKTIVITAS.append({"waktu": waktu_dt, "aktivitas": aktivitas})
+
+
+def simpan_log():
+    """Menulis seluruh log ke log.csv (mode 'w')."""
+    baris = ["waktu,aktivitas\n"]
+    for catatan in LOG_AKTIVITAS:
+        waktu_str = (
+            catatan["waktu"].strftime("%Y-%m-%d %H:%M")
+            if isinstance(catatan["waktu"], datetime)
+            else str(catatan["waktu"])
+        )
+        baris.append(_baris_csv([waktu_str, catatan["pesan"]]) + "\n")
+
+    with open(FILE_LOG, "w", encoding="utf-8") as berkas:
+        berkas.writelines(baris)
+
+
+def catat_aktivitas(aktivitas, waktu=None):
+    """Mencatat satu baris log aktivitas program dan menyimpannya ke log.csv."""
+    waktu_final = waktu or datetime.now()
+    catatan = {"waktu": waktu_final, "aktivitas": aktivitas}
+    LOG_AKTIVITAS.append(catatan)
+
+    try:
+        _siapkan_append(FILE_LOG, "waktu,aktivitas")
+        waktu_str = (
+            waktu_final.strftime("%Y-%m-%d %H:%M")
+            if isinstance(waktu_final, datetime)
+            else str(waktu_final)
+        )
+        with open(FILE_LOG, "a", encoding="utf-8") as berkas:
+            berkas.write(_baris_csv([waktu_str, aktivitas]) + "\n")
+    except OSError:
+        pass
+
+
 def simpan_transaksi():
     """Menulis seluruh transaksi ke transaksi.csv (mode 'w')."""
     baris = ["id_transaksi,nim_peminjam,daftar_alat,tgl_pinjam,"
@@ -336,16 +396,19 @@ def muat_transaksi():
             
 
 def siapkan_data():
-    """Memuat data awal langsung dari mahasiswa.csv, alat.csv, dan transaksi.csv."""
+    """Memuat data awal langsung dari mahasiswa.csv, alat.csv, transaksi.csv, dan log.csv."""
     muat_mahasiswa()
     muat_alat()
     muat_transaksi()
+    muat_log()
     catat_aktivitas(f"Data dimuat dari {FILE_MAHASISWA.name} "
                     f"({len(DAFTAR_MAHASISWA)} mahasiswa)")
     catat_aktivitas(f"Data dimuat dari {FILE_ALAT.name} "
                     f"({len(DAFTAR_ALAT)} alat)")
     catat_aktivitas(f"Data dimuat dari {FILE_TRANSAKSI.name} "
                     f"({len(DAFTAR_TRANSAKSI)} transaksi)")
+    catat_aktivitas(f"Data dimuat dari {FILE_LOG.name} "
+                    f"({len(LOG_AKTIVITAS)} log aktivitas)")
 
 
 def judul(teks):
