@@ -262,7 +262,7 @@ def muat_log():
     semua_baris = _baca_semua_baris(FILE_LOG)
     if not semua_baris:
         return
-    judul_kolom = pecah_kolom(semua_baris[0])
+    judul_kolom = _pecah_kolom(semua_baris[0])
     for baris in semua_baris[1:]:
         if not baris.strip():
             continue
