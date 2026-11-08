@@ -1048,7 +1048,7 @@ def tampilkan_log_aktivitas():
     print(f"\n--- Log Aktivitas ({len(LOG_AKTIVITAS)} catatan, terbaru dulu) ---")
     for catatan in sorted(LOG_AKTIVITAS, key=lambda c: c["waktu"],
                           reverse=True):
-        print(f"  [{catatan['waktu']:%Y-%m-%d %H:%M}] {catatan['aktivitas']}")
+        print(f"  [{catatan['waktu']:%Y-%m-%d %H:%M}] {catatan['pesan']}")
 
 
 def menu_log_aktivitas():
