@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from alat import Alat
+from detail_peminjaman import DetailPeminjaman
 from kategori_alat import KategoriAlat
 from mahasiswa import Mahasiswa
 from transaksi import (
@@ -24,15 +25,16 @@ DAFTAR_TRANSAKSI = []
 
 FILE_MAHASISWA = Path(__file__).resolve().parent / "mahasiswa.csv"
 FILE_ALAT = Path(__file__).resolve().parent / "alat.csv"
+FILE_TRANSAKSI = Path(__file__).resolve().parent / "transaksi.csv"
 
 KONDISI_PILIHAN = ("Baik", "Rusak Ringan", "Rusak Berat")
 _id_transaksi = [0]
 
 
 def id_transaksi_baru():
-    """Membuat ID transaksi unik: TRX-001, TRX-002, ..."""
+    """Membuat ID transaksi unik: T001, T002, ..."""
     _id_transaksi[0] += 1
-    return f"TRX-{_id_transaksi[0]:03d}"
+    return f"T{_id_transaksi[0]:03d}"
 
 
 LOG_AKTIVITAS = []
@@ -253,14 +255,97 @@ def tambah_alat_ke_file(alat):
         ]) + "\n")
 
 
+def simpan_transaksi():
+    """Menulis seluruh transaksi ke transaksi.csv (mode 'w')."""
+    baris = ["id_transaksi,nim_peminjam,daftar_alat,tgl_pinjam,"
+             "tgl_tenggat,status\n"]
+    for trx in DAFTAR_TRANSAKSI:
+        daftar_alat = ";".join(
+            f"{d.alat.kode_alat}:"
+            f"{'dikembalikan' if d.sudah_dikembalikan else 'dipinjam'}"
+            for d in trx.daftar_detail
+        )
+        baris.append(_baris_csv([
+            trx.id_transaksi,
+            trx.mahasiswa.get_nim(),
+            daftar_alat,
+            f"{trx.tanggal_pinjam:%Y-%m-%d}",
+            f"{trx.batas_kembali:%Y-%m-%d}",
+            trx.status.lower(),
+        ]) + "\n")
+
+    with open(FILE_TRANSAKSI, "w", encoding="utf-8") as berkas:
+        berkas.writelines(baris)
+
+
+def muat_transaksi():
+    """Membaca transaksi.csv (mode 'r')."""
+    DAFTAR_TRANSAKSI.clear()
+    semua_baris = _baca_semua_baris(FILE_TRANSAKSI)
+    if not semua_baris:
+        return
+
+    judul_kolom = _pecah_kolom(semua_baris[0])
+    for baris in semua_baris[1:]:
+        if not baris.strip():
+            continue
+        data = _baris_ke_dict(judul_kolom, baris)
+
+        nim = data.get("nim_peminjam", "")
+        mhs = DAFTAR_MAHASISWA.get(nim)
+        if mhs is None:
+            print(f"  [!] Transaksi {data.get('id_transaksi', '?')} dilewati: "
+                  f"NIM {nim} tidak ada di mahasiswa.csv")
+            continue
+
+        try:
+            tgl_pinjam = datetime.strptime(data["tgl_pinjam"], "%Y-%m-%d")
+            tgl_tenggat = datetime.strptime(data["tgl_tenggat"], "%Y-%m-%d")
+            lama = (tgl_tenggat - tgl_pinjam).days
+            trx = TransaksiPeminjaman(data["id_transaksi"], mhs,
+                                      tanggal_pinjam=tgl_pinjam,
+                                      lama_hari=lama)
+        except (KeyError, ValueError) as pesan:
+            print(f"  [!] Baris transaksi dilewati: {pesan}")
+            continue
+
+        for item in data.get("daftar_alat", "").split(";"):
+            if ":" not in item:
+                continue
+            kode, status_alat = item.split(":", 1)
+            alat = DAFTAR_ALAT.get(kode.strip())
+            if alat is None:
+                print(f"  [!] Alat {kode} tidak ada di alat.csv, dilewati.")
+                continue
+            detail = DetailPeminjaman(alat, 1)
+            trx.daftar_detail.append(detail)
+            if status_alat.strip().lower() == "dikembalikan":
+                tersedia, kondisi = alat.tersedia, alat.kondisi
+                detail.kembalikan(kondisi, tgl_pinjam, 0)
+                alat.set_tersedia(tersedia)
+                alat.set_kondisi(kondisi)
+            else:
+                alat.set_tersedia(False)
+
+        trx._perbarui_status()
+        DAFTAR_TRANSAKSI.append(trx)
+
+        angka = "".join(c for c in trx.id_transaksi if c.isdigit())
+        if angka:
+            _id_transaksi[0] = max(_id_transaksi[0], int(angka))
+            
+
 def siapkan_data():
-    """Memuat data awal langsung dari mahasiswa.csv dan alat.csv."""
+    """Memuat data awal langsung dari mahasiswa.csv, alat.csv, dan transaksi.csv."""
     muat_mahasiswa()
     muat_alat()
+    muat_transaksi()
     catat_aktivitas(f"Data dimuat dari {FILE_MAHASISWA.name} "
                     f"({len(DAFTAR_MAHASISWA)} mahasiswa)")
     catat_aktivitas(f"Data dimuat dari {FILE_ALAT.name} "
                     f"({len(DAFTAR_ALAT)} alat)")
+    catat_aktivitas(f"Data dimuat dari {FILE_TRANSAKSI.name} "
+                    f"({len(DAFTAR_TRANSAKSI)} transaksi)")
 
 
 def judul(teks):
@@ -627,6 +712,7 @@ def menu_pinjam_alat():
     DAFTAR_TRANSAKSI.append(trx)
     mhs.set_status_aktif(True)
     simpan_alat()
+    simpan_transaksi()
     catat_pembuatan_transaksi(trx)
     print("\n  [OK] Peminjaman berhasil dicatat.")
     print(f"       Status ketersediaan alat disimpan di {FILE_ALAT.name}.")
@@ -688,6 +774,7 @@ def menu_pengembalian_alat():
 
     catat_pengembalian(trx, detail)
     simpan_alat()
+    simpan_transaksi()
     print(f"\n  [OK] {kode} berhasil dikembalikan dengan kondisi "
           f"'{kondisi.title()}'.")
     if not trx.aktif:
