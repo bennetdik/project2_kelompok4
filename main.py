@@ -328,7 +328,6 @@ def simpan_transaksi():
             f"{trx.batas_kembali:%Y-%m-%d}",
             trx.status.lower(),
         ]) + "\n")
-
     with open(FILE_TRANSAKSI, "w", encoding="utf-8") as berkas:
         berkas.writelines(baris)
 
