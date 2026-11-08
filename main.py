@@ -262,28 +262,25 @@ def muat_log():
     semua_baris = _baca_semua_baris(FILE_LOG)
     if not semua_baris:
         return
-
-    judul_kolom = _pecah_kolom(semua_baris[0])
+    judul_kolom = pecah_kolom(semua_baris[0])
     for baris in semua_baris[1:]:
         if not baris.strip():
             continue
         data = _baris_ke_dict(judul_kolom, baris)
         waktu_str = data.get("waktu", "").strip()
-        aktivitas = data.get("aktivitas", "").strip()
-        if not waktu_str or not aktivitas:
+        pesan = data.get("pesan", "").strip()
+        if not waktu_str or not pesan:
             continue
-
         try:
             waktu_dt = datetime.strptime(waktu_str, "%Y-%m-%d %H:%M")
         except ValueError:
             waktu_dt = datetime.now()
-
-        LOG_AKTIVITAS.append({"waktu": waktu_dt, "aktivitas": aktivitas})
+        LOG_AKTIVITAS.append({"waktu": waktu_dt, "pesan": pesan})
 
 
 def simpan_log():
     """Menulis seluruh log ke log.csv (mode 'w')."""
-    baris = ["waktu,aktivitas\n"]
+    baris = ["waktu,pesan\n"]
     for catatan in LOG_AKTIVITAS:
         waktu_str = (
             catatan["waktu"].strftime("%Y-%m-%d %H:%M")
@@ -291,26 +288,24 @@ def simpan_log():
             else str(catatan["waktu"])
         )
         baris.append(_baris_csv([waktu_str, catatan["pesan"]]) + "\n")
-
     with open(FILE_LOG, "w", encoding="utf-8") as berkas:
         berkas.writelines(baris)
 
 
-def catat_aktivitas(aktivitas, waktu=None):
+def catat_aktivitas(pesan, waktu=None):
     """Mencatat satu baris log aktivitas program dan menyimpannya ke log.csv."""
     waktu_final = waktu or datetime.now()
-    catatan = {"waktu": waktu_final, "aktivitas": aktivitas}
+    catatan = {"waktu": waktu_final, "pesan": pesan}
     LOG_AKTIVITAS.append(catatan)
-
     try:
-        _siapkan_append(FILE_LOG, "waktu,aktivitas")
+        _siapkan_append(FILE_LOG, "waktu,pesan")
         waktu_str = (
             waktu_final.strftime("%Y-%m-%d %H:%M")
             if isinstance(waktu_final, datetime)
             else str(waktu_final)
         )
         with open(FILE_LOG, "a", encoding="utf-8") as berkas:
-            berkas.write(_baris_csv([waktu_str, aktivitas]) + "\n")
+            berkas.write(_baris_csv([waktu_str, pesan]) + "\n")
     except OSError:
         pass
 
@@ -1053,7 +1048,7 @@ def tampilkan_log_aktivitas():
     print(f"\n--- Log Aktivitas ({len(LOG_AKTIVITAS)} catatan, terbaru dulu) ---")
     for catatan in sorted(LOG_AKTIVITAS, key=lambda c: c["waktu"],
                           reverse=True):
-        print(f"  [{catatan['waktu']:%Y-%m-%d %H:%M}] {catatan['pesan']}")
+        print(f"  [{catatan['waktu']:%Y-%m-%d %H:%M}] {catatan['aktivitas']}")
 
 
 def menu_log_aktivitas():
